@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 #include <libnode/buffer.h>
+#include <algorithm>
 #include <cstring>
 
 namespace libj {
@@ -29,7 +30,7 @@ TEST(GTestBuffer, TestCreate3) {
     };  // これはUTF-8です。
     String::CPtr s1 = String::create(c1);
     String::CPtr s2 = String::create(c2, String::ASCII);
-    String::CPtr s3 = String::create(c3, String::UTF8);
+    String::CPtr s3 = String::create(c2, String::UTF8);
     Buffer::Ptr b1 = Buffer::create(s1);
     Buffer::Ptr b2 = Buffer::create(s2);
     Buffer::Ptr b3 = Buffer::create(s3);
@@ -42,7 +43,7 @@ TEST(GTestBuffer, TestWrite1) {
     const int len = 20;
     Buffer::Ptr b = Buffer::create(len);
     for (int i = 0; i < len; i++)
-        b.writeUInt8(i + 1, i);
+        b->writeUInt8(i + 1, i);
 
     const char* cs[] = {
         "shoter than buffer",
@@ -52,13 +53,13 @@ TEST(GTestBuffer, TestWrite1) {
     for (int i = 0; i < 3; i++) {
         const char* c = cs[i];
         String::CPtr s = String::create(c);
-        b.write(s);
+        b->write(s);
         for (int j = 0; j < len; j++) {
             UByte d;
 #ifdef LIBJ_USE_EXCEPTION
-            d = b.readUInt8(i);
+            d = b->readUInt8(i);
 #else
-            ASSERT_TRUE(b.readUInt8(&d, i));
+            ASSERT_TRUE(b->readUInt8(&d, i));
 #endif
             if (i < strlen(c)) {
                 ASSERT_EQ(c[i], d);
@@ -79,14 +80,14 @@ TEST(GTestBuffer, TestWrite2) {
 
     for (int plen = pstr->length(); plen; plen /= 2) {
         for (int ofs = 0; ofs + plen <= len; ofs++) {
-            b.write(init_str);
-            b.write(pstr, ofs);
+            b->write(init_str);
+            b->write(pstr, ofs);
             for (int i = 0; i < len; i++) {
                 UByte d;
 #ifdef LIBJ_USE_EXCEPTION
-                d = b.readUInt8(ofs);
+                d = b->readUInt8(ofs);
 #else
-                ASSERT_TRUE(b.readUInt8(&d, ofs));
+                ASSERT_TRUE(b->readUInt8(&d, ofs));
 #endif
                 if (i < ofs || i > ofs + plen) {
                     ASSERT_EQ(i + 1, d);
@@ -109,13 +110,13 @@ TEST(GTestBuffer, TestWrite3) {
         0x8b, 0xe3, 0x82, 0x92, 0   // enough longer than buffer
     };
     String::CPtr s = String::create(u, String::UTF8);
-    b.write(s, 0, NO_POS, String::UTF8);
+    b->write(s, 0, NO_POS, String::UTF8);
     for (int i = 0; i < len; i++) {
         UByte d;
 #ifdef LIBJ_USE_EXCEPTION
-        d = b.readUInt8(ofs);
+        d = b->readUInt8(ofs);
 #else
-        ASSERT_TRUE(b.readUInt8(&d, ofs));
+        ASSERT_TRUE(b->readUInt8(&d, i));
 #endif
         ASSERT_EQ(u[i], d);
     }
@@ -125,14 +126,14 @@ TEST(GTestBuffer, TestUInt8) {
     const int len = 20;
     Buffer::Ptr b = Buffer::create(len);
     for (int i = 0; i < len; i++) {
-        ASSERT_TRUE(writeUInt8(3 * (i + 1), i));
+        ASSERT_TRUE(b->writeUInt8(3 * (i + 1), i));
     }
     for (int i = 0; i < len; i++) {
         UByte d;
 #ifdef LIBJ_USE_EXCEPTION
-        d = b.readUInt8(i);
+        d = b->readUInt8(i);
 #else
-        ASSERT_TRUE(b.readUInt8(&d, i));
+        ASSERT_TRUE(b->readUInt8(&d, i));
 #endif
         ASSERT_EQ(3 * (i + 1), d);
     }
@@ -142,14 +143,14 @@ TEST(GTestBuffer, TestInt8) {
     const int len = 20;
     Buffer::Ptr b = Buffer::create(len);
     for (int i = 0; i < len; i++) {
-        ASSERT_TRUE(writeInt8(-4 * (i + 1), i));
+        ASSERT_TRUE(b->writeInt8(-4 * (i + 1), i));
     }
     for (int i = 0; i < len; i++) {
         Byte d;
 #ifdef LIBJ_USE_EXCEPTION
-        d = b.readInt8(i);
+        d = b->readInt8(i);
 #else
-        ASSERT_TRUE(b.readInt8(&d, i));
+        ASSERT_TRUE(b->readInt8(&d, i));
 #endif
         ASSERT_EQ(-4 * (i + 1), d);
     }
@@ -159,36 +160,36 @@ TEST(GTestBuffer, TestUInt16LE) {
     const int len = 20;
     Buffer::Ptr b = Buffer::create(len);
     // write 1, 2, 3, ...
-    b.writeUInt8(0, 0x01);
+    b->writeUInt8(0x01, 0);
     UShort e = 0x0302;
     for (int i = 1; i + 1 < len; i += 2) {
-        b.writeUInt16LE(i, e);
+        b->writeUInt16LE(i, e);
         e += 0x0202;
     }
-    b.writeUInt8(i, e & 0xff);
+    b->writeUInt8(e & 0xff, len - 1);
     // aligned read
     e = 0x0201;
     for (int i = 0; i + 1 < len; i += 2) {
         UShort d;
 #ifdef LIBJ_USE_EXCEPTION
-        d = b.readUInt16LE(i);
+        d = b->readUInt16LE(i);
 #else
-        ASSERT_TRUE(b.readUInt16LE(&d, i));
+        ASSERT_TRUE(b->readUInt16LE(&d, i));
 #endif
         ASSERT_EQ(e, d);
-        d += 0x0202;
+        e += 0x0202;
     }
     // non-aligned read
     e = 0x0302;
     for (int i = 1; i + 1 < len; i += 2) {
         UShort d;
 #ifdef LIBJ_USE_EXCEPTION
-        d = b.readUInt16LE(i);
+        d = b->readUInt16LE(i);
 #else
-        ASSERT_TRUE(b.readUInt16LE(&d, i));
+        ASSERT_TRUE(b->readUInt16LE(&d, i));
 #endif
         ASSERT_EQ(e, d);
-        d += 0x0202;
+        e += 0x0202;
     }
 }
 
@@ -196,36 +197,36 @@ TEST(GTestBuffer, TestUInt16BE) {
     const int len = 20;
     Buffer::Ptr b = Buffer::create(len);
     // write 1, 2, 3, ...
-    b.writeUInt8(0, 0x01);
+    b->writeUInt8(0x01, 0);
     UShort e = 0x0203;
     for (int i = 1; i + 1 < len; i += 2) {
-        b.writeUInt16LE(i, e);
+        b->writeUInt16LE(i, e);
         e += 0x0202;
     }
-    b.writeUInt8(i, e >> 8);
+    b->writeUInt8(e >> 8, len - 1);
     // aligned read
     e = 0x0102;
     for (int i = 0; i + 1 < len; i += 2) {
         UShort d;
 #ifdef LIBJ_USE_EXCEPTION
-        d = b.readUInt16LE(i);
+        d = b->readUInt16LE(i);
 #else
-        ASSERT_TRUE(b.readUInt16LE(&d, i));
+        ASSERT_TRUE(b->readUInt16LE(&d, i));
 #endif
         ASSERT_EQ(e, d);
-        d += 0x0202;
+        e += 0x0202;
     }
     // non-aligned read
     e = 0x0203;
     for (int i = 1; i + 1 < len; i += 2) {
         UShort d;
 #ifdef LIBJ_USE_EXCEPTION
-        d = b.readUInt16LE(i);
+        d = b->readUInt16LE(i);
 #else
-        ASSERT_TRUE(b.readUInt16LE(&d, i));
+        ASSERT_TRUE(b->readUInt16LE(&d, i));
 #endif
         ASSERT_EQ(e, d);
-        d += 0x0202;
+        e += 0x0202;
     }
 }
 
@@ -233,36 +234,36 @@ TEST(GTestBuffer, TestInt16LE) {
     const int len = 20;
     Buffer::Ptr b = Buffer::create(len);
     // write 0xff, 0xfe, 0xfd, ...
-    b.writeInt8(0, 0xff);
+    b->writeInt8(0xff, 0);
     Short e = 0xfdfe;
     for (int i = 1; i + 1 < len; i += 2) {
-        b.writeInt16LE(i, e);
+        b->writeInt16LE(i, e);
         e -= 0x0202;
     }
-    b.writeInt8(i, e & 0xff);
+    b->writeInt8(e & 0xff, len - 1);
     // aligned read
     e = 0xfeff;
     for (int i = 0; i + 1 < len; i += 2) {
         Short d;
 #ifdef LIBJ_USE_EXCEPTION
-        d = b.readInt16LE(i);
+        d = b->readInt16LE(i);
 #else
-        ASSERT_TRUE(b.readInt16LE(&d, i));
+        ASSERT_TRUE(b->readInt16LE(&d, i));
 #endif
         ASSERT_EQ(e, d);
-        d -= 0x0202;
+        e -= 0x0202;
     }
     // non-aligned read
     e = 0xfdfe;
     for (int i = 1; i + 1 < len; i += 2) {
         Short d;
 #ifdef LIBJ_USE_EXCEPTION
-        d = b.readInt16LE(i);
+        d = b->readInt16LE(i);
 #else
-        ASSERT_TRUE(b.readInt16LE(&d, i));
+        ASSERT_TRUE(b->readInt16LE(&d, i));
 #endif
         ASSERT_EQ(e, d);
-        d -= 0x0202;
+        e -= 0x0202;
     }
 }
 
@@ -270,36 +271,329 @@ TEST(GTestBuffer, TestInt16BE) {
     const int len = 20;
     Buffer::Ptr b = Buffer::create(len);
     // write 0xff, 0xfe, 0xfd, ...
-    b.writeInt8(0, 0xff);
+    b->writeInt8(0xff, 0);
     Short e = 0xfefd;
     for (int i = 1; i + 1 < len; i += 2) {
-        b.writeInt16BE(i, e);
+        b->writeInt16BE(i, e);
         e -= 0x0202;
     }
-    b.writeInt8(i, e & 0xff);
+    b->writeInt8(e & 0xff, len - 1);
     // aligned read
     e = 0xfffe;
     for (int i = 0; i + 1 < len; i += 2) {
         Short d;
 #ifdef LIBJ_USE_EXCEPTION
-        d = b.readInt16BE(i);
+        d = b->readInt16BE(i);
 #else
-        ASSERT_TRUE(b.readInt16BE(&d, i));
+        ASSERT_TRUE(b->readInt16BE(&d, i));
 #endif
         ASSERT_EQ(e, d);
-        d -= 0x0202;
+        e -= 0x0202;
     }
     // non-aligned read
     e = 0xfefd;
     for (int i = 1; i + 1 < len; i += 2) {
         Short d;
 #ifdef LIBJ_USE_EXCEPTION
-        d = b.readInt16BE(i);
+        d = b->readInt16BE(i);
 #else
-        ASSERT_TRUE(b.readInt16BE(&d, i));
+        ASSERT_TRUE(b->readInt16BE(&d, i));
 #endif
         ASSERT_EQ(e, d);
-        d -= 0x0202;
+        e -= 0x0202;
+    }
+}
+
+TEST(GTestBuffer, TestUInt32LE) {
+    const int len = 20;
+    Buffer::Ptr b = Buffer::create(len);
+    // write 1, 2, 3, ...
+    b->writeUInt16LE(0x0201, 0);
+    UInt e = 0x06050403;
+    for (int i = 2; i + 3 < len; i += 4) {
+        b->writeUInt32LE(i, e);
+        e += 0x04040404;
+    }
+    b->writeUInt16LE(e & 0xffff, len - 2);
+    // aligned read
+    e = 0x04030201;
+    for (int i = 0; i + 3 < len; i += 4) {
+        UInt d;
+#ifdef LIBJ_USE_EXCEPTION
+        d = b->readUInt32LE(i);
+#else
+        ASSERT_TRUE(b->readUInt32LE(&d, i));
+#endif
+        ASSERT_EQ(e, d);
+        e += 0x04040404;
+    }
+    // non-aligned read
+    e = 0x05040302;
+    for (int i = 1; i + 3 < len; i += 4) {
+        UInt d;
+#ifdef LIBJ_USE_EXCEPTION
+        d = b->readUInt32LE(i);
+#else
+        ASSERT_TRUE(b->readUInt32LE(&d, i));
+#endif
+        ASSERT_EQ(e, d);
+        e += 0x04040404;
+    }
+}
+
+TEST(GTestBuffer, TestUInt32BE) {
+    const int len = 20;
+    Buffer::Ptr b = Buffer::create(len);
+    // write 1, 2, 3, ...
+    b->writeUInt16BE(0x0102, 0);
+    UInt e = 0x03040506;
+    for (int i = 2; i + 3 < len; i += 4) {
+        b->writeUInt32LE(i, e);
+        e += 0x04040404;
+    }
+    b->writeUInt16BE(e >> 16, len - 2);
+    // aligned read
+    e = 0x01020304;
+    for (int i = 0; i + 3 < len; i += 4) {
+        UInt d;
+#ifdef LIBJ_USE_EXCEPTION
+        d = b->readUInt32BE(i);
+#else
+        ASSERT_TRUE(b->readUInt32BE(&d, i));
+#endif
+        ASSERT_EQ(e, d);
+        e += 0x04040404;
+    }
+    // non-aligned read
+    e = 0x02030405;
+    for (int i = 1; i + 3 < len; i += 4) {
+        UInt d;
+#ifdef LIBJ_USE_EXCEPTION
+        d = b->readUInt32BE(i);
+#else
+        ASSERT_TRUE(b->readUInt32BE(&d, i));
+#endif
+        ASSERT_EQ(e, d);
+        e += 0x04040404;
+    }
+}
+
+TEST(GTestBuffer, TestInt32LE) {
+    const int len = 20;
+    Buffer::Ptr b = Buffer::create(len);
+    // write 0xff, 0xfe, 0xfd, ...
+    b->writeInt16LE(0xfeff, 0);
+    Int e = 0xfafbfcfd;
+    for (int i = 2; i + 3 < len; i += 4) {
+        b->writeInt32LE(i, e);
+        e -= 0x04040404;
+    }
+    b->writeInt16LE(e & 0xffff, len - 2);
+    // aligned read
+    e = 0xfcfdfeff;
+    for (int i = 0; i + 3 < len; i += 4) {
+        Int d;
+#ifdef LIBJ_USE_EXCEPTION
+        d = b->readInt32LE(i);
+#else
+        ASSERT_TRUE(b->readInt32LE(&d, i));
+#endif
+        ASSERT_EQ(e, d);
+        e -= 0x04040404;
+    }
+    // non-aligned read
+    e = 0xfbfcfdfe;
+    for (int i = 1; i + 3 < len; i += 4) {
+        Int d;
+#ifdef LIBJ_USE_EXCEPTION
+        d = b->readInt32LE(i);
+#else
+        ASSERT_TRUE(b->readInt32LE(&d, i));
+#endif
+        ASSERT_EQ(e, d);
+        e -= 0x04040404;
+    }
+}
+
+TEST(GTestBuffer, TestInt32BE) {
+    const int len = 20;
+    Buffer::Ptr b = Buffer::create(len);
+    // write 0xff, 0xfe, 0xfd, ...
+    b->writeInt16BE(0xfffe, 0);
+    Int e = 0xfdfcfbfa;
+    for (int i = 2; i + 3 < len; i += 4) {
+        b->writeInt32BE(i, e);
+        e -= 0x04040404;
+    }
+    b->writeInt16BE(e >> 16, len - 2);
+    // aligned read
+    e = 0xfffefdfc;
+    for (int i = 0; i + 3 < len; i += 4) {
+        Int d;
+#ifdef LIBJ_USE_EXCEPTION
+        d = b->readInt32BE(i);
+#else
+        ASSERT_TRUE(b->readInt32BE(&d, i));
+#endif
+        ASSERT_EQ(e, d);
+        e -= 0x04040404;
+    }
+    // non-aligned read
+    e = 0xfefdfcfb;
+    for (int i = 1; i + 3 < len; i += 4) {
+        Int d;
+#ifdef LIBJ_USE_EXCEPTION
+        d = b->readInt32BE(i);
+#else
+        ASSERT_TRUE(b->readInt32BE(&d, i));
+#endif
+        ASSERT_EQ(e, d);
+        e -= 0x04040404;
+    }
+}
+
+template <typename T>
+static T byteSwap(T v) {
+    union {
+        T t;
+        UByte b[sizeof(T)];
+    } d;
+    d.t = v;
+    for (int i = 0; i < sizeof(T) / 2; i++) {
+        std::swap(d.b[i], d.b[sizeof(T) - 1 - i]);
+    }
+    return d.t;
+}
+
+TEST(GTestBuffer, TestFloat1) {
+    const int len = 20;
+    char init[len];
+    for (int i = 0; i < len; i++) init[i] = i + 1;
+    String::CPtr init_str = String::create(init, String::ASCII, len);
+    Buffer::Ptr b = Buffer::create(len);
+    Float f = 1.2345;
+    for (int i = 0; i + 3 < len; i++) {
+        b->write(init_str);
+        ASSERT_TRUE(b->writeFloatLE(f, i));
+        for (int j = 0; j < len; j++) {
+            if (j == i) {
+                Float d;
+#ifdef LIBJ_USE_EXCEPTION
+                d = b->readFloatBE(j);
+#else
+                ASSERT_TRUE(b->readFloatBE(&d, j));
+#endif
+                ASSERT_EQ(byteSwap<Float>(f), d);
+            } else if (j < i || j > i + 3) {
+                UByte d;
+#ifdef LIBJ_USE_EXCEPTION
+                d = b->readInt8(j);
+#else
+                ASSERT_TRUE(b->readUInt8(&d, j));
+#endif
+                ASSERT_EQ(j + 1, d);
+            }
+        }
+        f *= -6.789;
+    }
+}
+
+TEST(GTestBuffer, TestFloat2) {
+    const int len = 20;
+    char init[len];
+    for (int i = 0; i < len; i++) init[i] = i + 1;
+    String::CPtr init_str = String::create(init, String::ASCII, len);
+    Buffer::Ptr b = Buffer::create(len);
+    Float f = 12.345;
+    for (int i = 0; i + 3 < len; i++) {
+        b->write(init_str);
+        ASSERT_TRUE(b->writeFloatBE(f, i));
+        for (int j = 0; j < len; j++) {
+            if (j == i) {
+                Float d;
+#ifdef LIBJ_USE_EXCEPTION
+                d = b->readFloatLE(j);
+#else
+                ASSERT_TRUE(b->readFloatLE(&d, j));
+#endif
+                ASSERT_EQ(byteSwap<Float>(f), d);
+            } else if (j < i || j > i + 3) {
+                UByte d;
+#ifdef LIBJ_USE_EXCEPTION
+                d = b->readInt8(j);
+#else
+                ASSERT_TRUE(b->readUInt8(&d, j));
+#endif
+                ASSERT_EQ(j + 1, d);
+            }
+        }
+        f *= -0.6789;
+    }
+}
+
+TEST(GTestBuffer, TestDouble1) {
+    const int len = 20;
+    char init[len];
+    for (int i = 0; i < len; i++) init[i] = i + 1;
+    String::CPtr init_str = String::create(init, String::ASCII, len);
+    Buffer::Ptr b = Buffer::create(len);
+    Double f = -123.45;
+    for (int i = 0; i + 7 < len; i++) {
+        b->write(init_str);
+        ASSERT_TRUE(b->writeDoubleLE(f, i));
+        for (int j = 0; j < len; j++) {
+            if (j == i) {
+                Double d;
+#ifdef LIBJ_USE_EXCEPTION
+                d = b->readDoubleBE(j);
+#else
+                ASSERT_TRUE(b->readDoubleBE(&d, j));
+#endif
+                ASSERT_EQ(byteSwap<Double>(f), d);
+            } else if (j < i || j > i + 7) {
+                UByte d;
+#ifdef LIBJ_USE_EXCEPTION
+                d = b->readInt8(j);
+#else
+                ASSERT_TRUE(b->readUInt8(&d, j));
+#endif
+                ASSERT_EQ(j + 1, d);
+            }
+        }
+        f *= -0.6789;
+    }
+}
+
+TEST(GTestBuffer, TestDouble2) {
+    const int len = 20;
+    char init[len];
+    for (int i = 0; i < len; i++) init[i] = i + 1;
+    String::CPtr init_str = String::create(init, String::ASCII, len);
+    Buffer::Ptr b = Buffer::create(len);
+    Double f = 0.00012345;
+    for (int i = 0; i + 7 < len; i++) {
+        b->write(init_str);
+        ASSERT_TRUE(b->writeDoubleBE(f, i));
+        for (int j = 0; j < len; j++) {
+            if (j == i) {
+                Double d;
+#ifdef LIBJ_USE_EXCEPTION
+                d = b->readDoubleLE(j);
+#else
+                ASSERT_TRUE(b->readDoubleLE(&d, j));
+#endif
+                ASSERT_EQ(byteSwap<Double>(f), d);
+            } else if (j < i || j > i + 7) {
+                UByte d;
+#ifdef LIBJ_USE_EXCEPTION
+                d = b->readInt8(j);
+#else
+                ASSERT_TRUE(b->readUInt8(&d, j));
+#endif
+                ASSERT_EQ(j + 1, d);
+            }
+        }
+        f *= -678.9;
     }
 }
 
