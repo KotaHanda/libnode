@@ -597,5 +597,59 @@ TEST(GTestBuffer, TestDouble2) {
     }
 }
 
+TEST(GTestBuffer, TestSlice) {
+    Buffer::Ptr org = Buffer::create(10);
+    for (int i = 0; i < org->length(); i++)
+        org->writeUInt8(i + 1, i);
+
+    Buffer::Ptr sl = org->slice(0);
+    ASSERT_EQ(org->length(), sl->length());
+    for (int i = 0; i < sl->length(); i++) {
+        UByte d;
+#ifdef LIBJ_USE_EXCEPTION
+        d = sl->readInt8(i);
+#else
+        ASSERT_TRUE(sl->readUInt8(&d, i));
+#endif
+        ASSERT_EQ(i + 1, d);
+    }
+    sl = org->slice(5);
+    ASSERT_EQ(5, sl->length());
+    for (int i = 0; i < sl->length(); i++) {
+        UByte d;
+#ifdef LIBJ_USE_EXCEPTION
+        d = sl->readInt8(i);
+#else
+        ASSERT_TRUE(sl->readUInt8(&d, i));
+#endif
+        ASSERT_EQ(i + 6, d);
+    }
+    sl = org->slice(3, 6);
+    ASSERT_EQ(6, sl->length());
+    for (int i = 0; i < sl->length(); i++) {
+        UByte d;
+#ifdef LIBJ_USE_EXCEPTION
+        d = sl->readInt8(i);
+#else
+        ASSERT_TRUE(sl->readUInt8(&d, i));
+#endif
+        ASSERT_EQ(i + 4, d);
+        ASSERT_TRUE(sl->writeUInt8(d + 10, i));     // modify org
+    }
+    for (int i = 0; i < org->length(); i++) {
+        UByte d;
+#ifdef LIBJ_USE_EXCEPTION
+        d = org->readInt8(i);
+#else
+        ASSERT_TRUE(org->readUInt8(&d, i));
+#endif
+        if (i < 3 || i >= 3 + 6) {
+            ASSERT_EQ(i + 1, d);
+        } else {
+            ASSERT_EQ(i + 11, d);
+        }
+    }
+}
+
 }  // namespace node
 }  // namespace libj

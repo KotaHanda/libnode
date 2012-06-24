@@ -190,6 +190,9 @@ class Buffer : LIBJ_JS_ARRAY_BUFFER(Buffer)
     Boolean writeDoubleBE(Double value, Size offset) {
         return setFloat64(offset, value, false);
     }
+
+    Ptr slice(Size begin);
+    Ptr slice(Size begin, Size end);
 };
 
 }  // namespace node
