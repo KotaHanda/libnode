@@ -624,7 +624,7 @@ TEST(GTestBuffer, TestSlice) {
 #endif
         ASSERT_EQ(i + 6, d);
     }
-    sl = org->slice(3, 6);
+    sl = org->slice(3, 9);
     ASSERT_EQ(6, sl->length());
     for (int i = 0; i < sl->length(); i++) {
         UByte d;
@@ -643,7 +643,7 @@ TEST(GTestBuffer, TestSlice) {
 #else
         ASSERT_TRUE(org->readUInt8(&d, i));
 #endif
-        if (i < 3 || i >= 3 + 6) {
+        if (i < 3 || i >= 9) {
             ASSERT_EQ(i + 1, d);
         } else {
             ASSERT_EQ(i + 11, d);
